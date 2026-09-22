@@ -1,4 +1,4 @@
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type DatabaseSyncInstance } from '@photostructure/sqlite';
 import { QueryPool, type PoolOptions } from './query-pool.js';
 import { FacetError, asFacetError } from './errors.js';
 import { validateSingleSql } from './sql-validation.js';
@@ -45,7 +45,7 @@ function encode(value: unknown, type: ColumnType): string | number | null {
 }
 export class DataWorkspace {
   readonly path: string;
-  private db: DatabaseSync;
+  private db: DatabaseSyncInstance;
   private readonly pool: QueryPool;
   private closePromise?: Promise<void>;
   constructor(path: string, poolOptions: PoolOptions = {}) {
@@ -118,7 +118,7 @@ export class DataWorkspace {
         for (const object of objects) this.db.exec(String(object.sql));
       } else for (const name of names) if (!Object.hasOwn(existing.columns, name)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition(name)}`);
       if (mode === 'replace') this.db.exec(`DELETE FROM ${table}`);
-      const statements = new Map<string, ReturnType<DatabaseSync['prepare']>>();
+      const statements = new Map<string, ReturnType<DatabaseSyncInstance['prepare']>>();
       for (const row of input.records) {
         for (const key of primaryKey) if (row[key] == null) throw new FacetError('INVALID_ARGUMENT', `Missing primary key value: ${key}`);
         const keys = Object.keys(row);

@@ -7,8 +7,10 @@ Do not introduce a query DSL, remote storage, or an HTTP server without a reques
 
 ## Runtime and local development
 
-Requires Node.js >=24.10 (native node:sqlite authorizer support), npm, and ESM.
-There are no runtime npm dependencies. The package is currently private and has
+Requires Node.js >=22.0.0, npm, and ESM; Node 22 is the deployment baseline.
+Use @photostructure/sqlite 2.6.0 for DatabaseSync and authorizer support; do not
+import node:sqlite in runtime code or lower the authorization guarantees.
+This is a native runtime dependency, with platform-specific prebuilds. The package is currently private and has
 not been published to npm.
 
 ```sh
@@ -184,3 +186,14 @@ only. schema tool table argument is required at both JSON Schema and runtime lev
 Run regression tests for these cases and `npm run benchmark` for pool changes;
 report cold and warm timings separately, never extrapolate warm results to new CLI
 processes. Keep the lack of OS CPU/memory quotas explicit.
+
+## Node 22 compatibility (0.8)
+
+Keep .nvmrc/.node-version, @types/node and CI aligned with Node 22. Run tests under
+Node 22, including the child processes and packed CLI, when touching runtime APIs.
+Do not add Node 24+ built-ins without a Node 22 implementation. The native SQLite
+driver is pinned, not conditionally selected based on the runtime version.
+Internal npm mirrors must include its transitive dependencies and prebuild files.
+Run npm ci on the deployment platform; do not reuse another platform's node_modules.
+The .tgz does not bundle dependency binaries. Maintain existing SQLite file format
+compatibility and enforce setAuthorizer on the query connections.

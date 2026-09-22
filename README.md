@@ -4,7 +4,7 @@
 
 ## 安装
 
-需要 Node.js >=24.10，ESM。包名 `@local/facet`，尚未发布 npm。
+运行基线为 Node.js 22（>=22.0.0），ESM。包名 `@local/facet`，尚未发布 npm。
 
 ```sh
 git clone https://github.com/TheApeironLab/facet.git
@@ -13,7 +13,7 @@ npm ci
 npm test
 npm pack
 # 在业务项目中安装生成的包
-npm install /path/to/local-facet-0.7.0.tgz
+npm install /path/to/local-facet-0.8.0.tgz
 ```
 
 项目内使用 `npx --no-install facet`，全局安装后可直接运行 `facet`；源码目录先 build，再运行 `node dist/cli.js`。
@@ -175,3 +175,13 @@ stdout 每个请求返回一行 `{ schema, id, ...SqlResult }`；解析/查询�
 `facet.drop('orders')` 在事务内删除表、目录元数据和所有相关关系。表不存在返回 NOT_FOUND；`facet.drop('orders', { ifExists: true })` 可安全重复，返回 `{ dropped: false }`。此能力只提供给业务 SDK，不暴露为 agent 工具或 CLI 写权限。
 
 自动推断的列会保存 inferred 标记。INTEGER → REAL 仅对标记为推断、非主键的列自动进行；显式类型保持严格，其他漂移不会转成字符串掩盖错误。旧版无推断来源标记的 INTEGER 列按显式类型处理，调用方可通过 columns 指定 REAL 完成受控扩宽。迁移失败时数据和类型一起回滚。
+
+## 0.8：对齐内网 Node 22
+
+`.nvmrc`、`.node-version` 和 CI 均以 Node 22 为基线，TypeScript 使用 @types/node 22。SDK 和 CLI 接口不变，也不需要迁移已有 SQLite 文件。
+
+Node 22 内置 SQLite 不提供本库依赖的 setAuthorizer，因此改用锁定版本的 [@photostructure/sqlite](https://github.com/photostructure/node-sqlite) 2.6.0，保留只读授权回调。所有 Node 版本使用同一驱动，避免按版本切换权限实现。这是一个运行时原生依赖，Facet 不再是零运行时依赖。
+
+内网 npm 镜像需要同步锁文件中的依赖，并保留驱动包的 prebuilds 原生文件。支持的平台从包内加载预编译文件；平台无匹配文件时需要 Python/C++/node-gyp 构建环境。部署请在目标平台执行 npm ci，不要直接拷贝其他 OS/架构的 node_modules。打包 tgz 不内嵌依赖，安装时仍需能访问内网 npm 镜像。
+
+本地在 Node 22.14.0（macOS arm64）验证全部回归测试；GitHub Actions 在 Linux 上验证最低 Node 22.0.0 和当前 Node 22。未在 apeiron/chentu 内网机器上实际执行。

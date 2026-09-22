@@ -1,10 +1,10 @@
 {
   "name": "@local/facet",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.10.0"
+    "node": ">=22.0.0"
   },
   "exports": {
     ".": {
@@ -26,7 +26,7 @@
     "benchmark": "npm run build && node bench/query.mjs"
   },
   "devDependencies": {
-    "@types/node": "^25.0.0",
+    "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
   },
   "description": "Local SQLite SDK and CLI for agent analytics",
@@ -39,5 +39,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/TheApeironLab/facet.git"
+  },
+  "dependencies": {
+    "@photostructure/sqlite": "2.6.0"
   }
 }

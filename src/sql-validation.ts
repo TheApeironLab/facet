@@ -1,7 +1,7 @@
 import { FacetError } from './errors.js';
 
 /** Reject statement delimiters outside SQLite quotes/comments before prepare().
- * node:sqlite prepare() ignores trailing statements; never depend on it for this check.
+ * SQLite prepare() ignores trailing statements; never depend on it for this check.
  * This is a lexical boundary check, not a SQL parser or an authorization mechanism.
  */
 export function validateSingleSql(sql: string): void {

@@ -1,7 +1,7 @@
-import { DatabaseSync, constants as c } from 'node:sqlite';
+import { DatabaseSync, type DatabaseSyncInstance, constants as c } from '@photostructure/sqlite';
 import { validateSingleSql } from './sql-validation.js';
 import { asFacetError } from './errors.js';
-let db: DatabaseSync | undefined;
+let db: DatabaseSyncInstance | undefined;
 process.on('disconnect', () => { db?.close(); process.exit(0); });
 process.on('message', (input: any) => {
   const { id, path, sql, params, maxRows, maxBytes } = input;
