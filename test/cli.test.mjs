@@ -18,7 +18,8 @@ test('SDK writes; CLI tables/schema/sql use the same names, data and metadata', 
   const tables=sdk.tables(); const schemas=sdk.schema();
   assert.equal('datasets' in sdk,false);assert.equal('query' in sdk,false);
   assert.deepEqual(sdk.tools().map(t=>t.name),['tables','schema','sql']);
-  assert.deepEqual(await sdk.tools()[1].execute({}),schemas);
+  assert.deepEqual(sdk.tools()[1].inputSchema.required,['table']);
+  assert.equal((await sdk.tools()[1].execute({})).error.code,'INVALID_ARGUMENT');
   assert.deepEqual(await sdk.tools()[1].execute({table:'orders'}),sdk.schema('orders'));
   await sdk.close();
   assert.deepEqual(parsed(run(directory,['tables'])).slice(1).map(r=>r.data),JSON.parse(JSON.stringify(tables)));

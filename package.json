@@ -1,6 +1,6 @@
 {
   "name": "@local/facet",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,7 +22,8 @@
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.mjs",
     "example": "npm run build && node examples/basic.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "benchmark": "npm run build && node bench/query.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

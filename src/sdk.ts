@@ -1,5 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { FacetError, asFacetError } from './errors.js';
+import { poolLimits, type PoolOptions } from './query-pool.js';
+export { FacetError } from './errors.js';
 import { DataWorkspace } from './workspace.js';
 import type { AgentTool, WriteOptions, SqlOptions, SqlResult, Relation } from './workspace.js';
 
@@ -8,15 +11,12 @@ export interface FacetOptions {
   directory: string;
   /** Defaults shared by direct queries and agent tools. */
   sql?: SqlOptions;
+  /** Persistent query processes and bounded waiting queue, per SDK instance. */
+  pool?: PoolOptions;
 }
 export interface ResponseWriteOptions<T> extends Omit<WriteOptions, 'records'> {
   /** Extract API records without teaching the SDK your HTTP/auth protocol. */
   select: (response: T) => Record<string, unknown>[];
-}
-export class FacetError extends Error {
-  constructor(readonly code: 'CLOSED' | 'INVALID_ARGUMENT' | 'STORAGE_ERROR', message: string, cause?: unknown) {
-    super(message, { cause }); this.name = 'FacetError';
-  }
 }
 function validateLimits(options: SqlOptions) {
   for (const [name, max] of [['maxRows', 10000], ['maxBytes', 10 * 1024 * 1024], ['timeoutMs', 30000]] as const) {
@@ -45,11 +45,12 @@ export class Facet {
     }
     this.defaults = { ...options.sql };
     validateLimits(this.defaults);
+    poolLimits(options.pool);
     this.directory = resolve(options.directory);
     this.databasePath = join(this.directory, 'data.sqlite');
     try {
       mkdirSync(this.directory, { recursive: true, mode: 0o700 });
-      this.workspace = new DataWorkspace(this.databasePath);
+      this.workspace = new DataWorkspace(this.databasePath, options.pool);
     } catch (error) { throw new FacetError('STORAGE_ERROR', 'Cannot open local data directory', error); }
   }
 
@@ -60,8 +61,10 @@ export class Facet {
   write(input: WriteOptions) { this.ensureOpen(); return this.workspace.write(input); }
   writeResponse<T>(response: T, options: ResponseWriteOptions<T>) {
     this.ensureOpen();
+    if (!options || typeof options.select !== 'function') throw new FacetError('INVALID_ARGUMENT', 'writeResponse requires a select function');
     const { select, ...input } = options;
-    const records = select(response);
+    let records: Record<string, unknown>[];
+    try { records = select(response); } catch (error) { throw asFacetError(error, 'INVALID_ARGUMENT'); }
     if (!Array.isArray(records)) throw new FacetError('INVALID_ARGUMENT', 'select must return an array of records');
     return this.workspace.write({ ...input, records });
   }
@@ -75,7 +78,9 @@ export class Facet {
     this.ensureOpen();
     return name === undefined ? this.workspace.tables().map(t => this.workspace.schema(t.name)) : this.workspace.schema(name);
   }
-  relate(relation: Relation) { this.ensureOpen(); this.workspace.relate(relation); }
+  relate(relation: Relation) { this.ensureOpen(); try { this.workspace.relate(relation); } catch (error) { throw asFacetError(error, 'INVALID_ARGUMENT'); } }
+  drop(name: string, options: { ifExists?: boolean } = {}) { this.ensureOpen(); return this.workspace.drop(name, options); }
+  stats() { this.ensureOpen(); return this.workspace.stats(); }
   instructions() { this.ensureOpen(); return this.workspace.instructions(); }
   tools(): AgentTool[] {
     this.ensureOpen();

@@ -56,7 +56,7 @@ Writing rules:
 - append inserts; duplicate primary keys fail. upsert requires a primary key and
   updates only supplied fields. Explicit null clears a value; omission preserves it.
 - replace clears rows transactionally and preserves the existing schema.
-- New columns can be added; existing type or primary-key changes require a new table.
+- New columns can be added; inferred non-key INTEGER may widen to REAL transactionally; explicit types stay strict. Other type or primary-key changes require a new table.
 - All-null columns need explicit types. Dates should be ISO-8601 text; nested
   objects/arrays are JSON text. Use integer minor units for exact monetary sums.
 - Source metadata describes the entire local table. During pagination mark partial;
@@ -94,9 +94,9 @@ SQL error, 4 missing resource, 5 conflict, 9 timeout/storage failure.
 
 `facet --help` shows all three CLI commands. There are no ingestion or maintenance
 CLI commands: application code writes through the SDK. SDK methods are write,
-writeResponse, tables, schema, sql, relate, instructions, tools, and close.
+writeResponse, tables, schema, sql, relate, drop, stats, instructions, tools, and close.
 `schema()` returns all tables; `schema(name)` returns one. Optional agent tools are
-also named tables/schema/sql; schema takes `{ table?: string }`.
+also named tables/schema/sql; schema requires `{ table: string }`; never return all metadata for a missing tool argument.
 SQL defaults are configured with `Facet.open({ directory, sql: { ... } })`.
 CLI JSONL uses facet.cli.v2 and the table field for schema metadata.
 
@@ -104,7 +104,10 @@ CLI JSONL uses facet.cli.v2 and the table field for schema metadata.
 
 - src/index.ts: public exports and types.
 - src/sdk.ts: Facet facade, directory management, defaults, lifecycle, agent adapters.
-- src/workspace.ts: transactions, schema inference, metadata, relations, query process management.
+- src/workspace.ts: transactions, type widening, metadata, relations, drop, SQL validation.
+- src/query-pool.ts: bounded persistent child process pool, queue, timeout, exit recovery and stats.
+- src/sql-validation.ts: quote/comment-aware SQL boundary validation before SQLite prepare.
+- src/errors.ts: FacetError and stable error classification.
 - src/query-worker.ts: separate query process, read-only connection, authorizer,
   result limits, snapshot versions. Despite its filename this is a child process.
 - src/cli.ts: parsing and output; reuse SDK operations rather than duplicating storage logic.
@@ -129,7 +132,7 @@ and schema commands. Add focused regressions for changed behavior. For docs-only
 changes inspect links/examples and affected package contents; avoid unnecessary tests.
 
 For packaging changes run npm pack --dry-run and check that dist includes cli.js
-and query-worker.js and the package contains AGENTS.md. When changing exports/bin
+and query-worker.js, query-pool.js, errors.js, sql-validation.js and the package contains AGENTS.md. When changing exports/bin
 or deployment, install the packed tarball in a temporary project and exercise it.
 Bundlers must keep this package external so the query process file remains available.
 
@@ -144,3 +147,31 @@ Public exports are Facet, FacetError and associated types; DataWorkspace is inte
 Old datasets/query/agent namespaces and grouped CLI commands are removed.
 See README migration table for the full breaking API change. Local database format
 is unchanged. Keep terminology consistent across code, types, tools and docs.
+
+## Query lifecycle and regression requirements (0.7)
+
+Reuse a Facet instance. Pool defaults are 2 workers and 64 queued tasks per instance,
+not a global machine-wide cap. Full queues return QUEUE_FULL. Timeouts include queue
+waiting. A dying worker occupies its slot until actual process close; do not spawn
+its replacement early. Crash/timeout settle exactly once, do not replay queries,
+and subsequent work must recover. Await close to drain and reap every child.
+Persistent connections must end each transaction and refresh catalog/version per query.
+
+Repeated standalone CLI launches still have cold-start cost. `facet sql --session`
+keeps one local process alive with JSONL stdin requests `{ id?, sql, params?, maxRows?,
+timeoutMs? }` and one result per line. It executes sequentially and honors stdout
+backpressure. EOF closes it; this is not a daemon and has no port or network service.
+
+BLOB values are tagged base64 objects, never numeric-key JSON objects. SqlResult's
+schemaVersion is 2. Metadata trace fields are preserved in --jsonl, hidden in TSV.
+SQL validation rejects external semicolons and NUL bytes before prepare, while
+allowing semicolons inside quoted values/identifiers/comments. SQLite authorizer
+still enforces read-only access. Do not bring back interpolated subquery wrapping.
+
+Writes throw FacetError with code. Inferred INTEGER widening and related writes
+must roll back together, preserving rows/indexes/triggers. Explicit numeric types
+must not silently widen. drop removes table/catalog/relations atomically and is SDK
+only. schema tool table argument is required at both JSON Schema and runtime levels.
+Run regression tests for these cases and `npm run benchmark` for pool changes;
+report cold and warm timings separately, never extrapolate warm results to new CLI
+processes. Keep the lack of OS CPU/memory quotas explicit.

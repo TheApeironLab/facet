@@ -7,7 +7,7 @@ import { DataWorkspace } from '../dist/workspace.js';
 async function fixture(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'facet-'));
   const ws = new DataWorkspace(join(dir, 'test.db'));
-  try { await fn(ws); } finally { ws.close(); rmSync(dir, { recursive: true, force: true }); }
+  try { await fn(ws); } finally { await ws.close(); rmSync(dir, { recursive: true, force: true }); }
 }
 test('API records, schema, partial upsert, relation and persistence', () => fixture(async ws => {
   ws.write({ table: 'suppliers', records: [{ id: 's1', name: 'A' }], primaryKey: ['id'] });
@@ -19,7 +19,7 @@ test('API records, schema, partial upsert, relation and persistence', () => fixt
   assert.equal(Object.keys(result.dataVersions).length, 2);
   assert.equal(ws.schema('orders').source.completeness, 'unknown');
   assert.equal(ws.schema('orders').relations.length, 1);
-  const reopened = new DataWorkspace(ws.path); assert.equal(reopened.schema('orders').rowCount, 1); reopened.close();
+  const reopened = new DataWorkspace(ws.path); assert.equal(reopened.schema('orders').rowCount, 1); await reopened.close();
 }));
 test('schema change and replace roll back atomically', () => fixture(async ws => {
   ws.write({ table: 'items', records: [{ id: 1, value: 2 }], primaryKey: ['id'] });

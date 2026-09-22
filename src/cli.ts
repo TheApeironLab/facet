@@ -2,6 +2,8 @@
 import { parseArgs } from 'node:util';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { createInterface } from 'node:readline';
+import { once } from 'node:events';
 import { Facet } from './sdk.js';
 
 const outputSchema = 'facet.cli.v2';
@@ -10,6 +12,7 @@ Usage:
   facet tables
   facet schema [TABLE]
   facet sql 'SELECT ...' [--params '[...]']
+  facet sql --session  # JSONL requests on stdin, one JSON result per request
 Options:
   --directory PATH   Local directory (default .facet)
   --jsonl            Machine-readable output
@@ -27,14 +30,16 @@ function cell(value: unknown): string { return (typeof value === 'object' ? JSON
 async function main() {
   const { values: v, positionals } = parseArgs({ allowPositionals: true, strict: true, options: {
     directory: { type: 'string', default: '.facet' }, jsonl: { type: 'boolean' }, help: { type: 'boolean' },
+    session: { type: 'boolean' },
     'sql-file': { type: 'string' }, params: { type: 'string' }, 'max-rows': { type: 'string' }, 'timeout-ms': { type: 'string' }, out: { type: 'string' },
   } });
   if (v.help || !positionals.length) { process.stdout.write(help); return; }
   const [command, argument] = positionals;
   if (!['tables', 'schema', 'sql'].includes(command)) fail(`Unknown command: ${command}. Use tables, schema or sql.`);
   if (positionals.length > (command === 'tables' ? 1 : 2)) fail('Too many arguments; quote SQL as one argument');
-  if (command !== 'sql' && ['sql-file', 'params', 'max-rows', 'timeout-ms', 'out'].some(k => v[k as keyof typeof v] !== undefined)) fail('SQL options require the sql command');
-  if (command === 'sql' && (argument !== undefined) === (v['sql-file'] !== undefined)) fail('Provide SQL as one argument or --sql-file FILE');
+  if (command !== 'sql' && ['session', 'sql-file', 'params', 'max-rows', 'timeout-ms', 'out'].some(k => v[k as keyof typeof v] !== undefined)) fail('SQL options require the sql command');
+  if (v.session && (argument !== undefined || v['sql-file'] !== undefined || v.params !== undefined || v.out !== undefined)) fail('--session takes requests from stdin; do not combine it with SQL, --sql-file, --params or --out');
+  if (command === 'sql' && !v.session && (argument !== undefined) === (v['sql-file'] !== undefined)) fail('Provide SQL as one argument or --sql-file FILE');
   const directory = resolve(v.directory);
   if (!existsSync(join(directory, 'data.sqlite'))) throw new CliError(4, 'Local database not found; use the SDK to write data to this directory first');
   const emit = (metadata: Record<string, unknown>, rows?: Record<string, unknown>[]) => {
@@ -62,9 +67,30 @@ async function main() {
       for (const table of tables) {
         if (v.jsonl) emit({ table });
         else {
-          const { columns, ...metadata } = table;
-          emit(metadata, Object.entries(columns).map(([name, column]) => ({ name, ...column })));
+          const { columns, version, updatedAt, ...metadata } = table;
+          emit(metadata, Object.entries(columns).map(([name, { inferred, ...column }]) => ({ name, ...column })));
         }
+      }
+      return;
+    }
+    if (v.session) {
+      // Keep one local SDK alive. EOF drains requests and closes all child processes.
+      const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
+      for await (const line of lines) {
+        if (!line.trim()) continue;
+        let id: string | number | null = null;
+        let result;
+        try {
+          const request = JSON.parse(line);
+          if (!request || typeof request !== 'object' || Array.isArray(request)) throw new Error('Expected a JSON request object');
+          if (request.id !== undefined && typeof request.id !== 'string' && typeof request.id !== 'number') throw new Error('id must be a string or number');
+          id = request.id ?? null;
+          result = await facet.sql(request.sql, request.params, {
+            maxRows: request.maxRows ?? Number(v['max-rows'] ?? 20),
+            timeoutMs: request.timeoutMs ?? Number(v['timeout-ms'] ?? 5000),
+          });
+        } catch (error) { result = { ok: false, error: { code: 'INVALID_ARGUMENT', message: (error as Error).message } }; }
+        if (!process.stdout.write(JSON.stringify({ schema: outputSchema, id, ...result }) + '\n')) await once(process.stdout, 'drain');
       }
       return;
     }
