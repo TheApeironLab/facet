@@ -150,7 +150,7 @@ facet workspace verify --directory ./local-data
 
 退出码：0 成功、2 参数/SQL 错误、4 不存在、5 冲突、9 超时/存储故障。错误只写 stderr，数据只写 stdout。除 workspace init 外，不会自动创建不存在的工作空间。默认目录 `.facet`，建议显式指定。SDK 与 CLI 的 schema/查询实现共用，已写数据互通。
 
-给 agent 的命令行操作说明见随包的 `SKILL.md`。
+给 agent 的使用方式、代码结构和维护流程见 [AGENTS.md](./AGENTS.md)。
 
 ## 0.4 命名更新
 

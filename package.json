@@ -16,7 +16,7 @@
     "dist",
     "README.md",
     "examples",
-    "SKILL.md"
+    "AGENTS.md"
   ],
   "scripts": {
     "build": "tsc",
