@@ -1,4 +1,4 @@
-import { Facet } from '@theapeironlab/facet';
+import { Facet } from '@joezhoujinjing/facet';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

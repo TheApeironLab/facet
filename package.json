@@ -1,5 +1,5 @@
 {
-  "name": "@theapeironlab/facet",
+  "name": "@joezhoujinjing/facet",
   "version": "0.8.0",
   "description": "Local SQLite SDK and CLI for agent analytics",
   "keywords": [
