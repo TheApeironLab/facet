@@ -1,0 +1,13 @@
+node_modules/
+*.db
+*.db-wal
+*.db-shm
+dist/
+.facet/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.tgz
+.env
+.env.*
+.DS_Store
