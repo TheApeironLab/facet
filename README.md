@@ -127,15 +127,26 @@ npm pack
 
 ## 0.7 查询池与本地 CLI 会话
 
+### 从 0.6 升级：必须关闭 SDK 实例
+
+**执行查询并启动 worker 后，如果忘记调用 `await facet.close()`，即使业务逻辑已经结束，常驻子进程及 IPC 通道仍会保持 Node.js 事件循环存活，程序不会自然退出。** 这是 0.7 引入持久查询池后的生命周期变化；0.6 每次查询后会退出查询进程。
+
+当前没有空闲回收：已启动的 worker 在空闲时仍占用内存，直到实例关闭。长驻应用应复用实例，并在应用关闭流程中等待 `close()`；短脚本应使用 `try/finally`（见上方 SDK 示例）或 `await using`。仅打开或写入、尚未启动查询 worker 的实例不会因查询池而阻止退出，但仍应关闭以释放数据库连接。
+
+库没有对 worker 或 IPC 调用 `unref()`，避免主进程在已接收的查询完成前自然退出。`close()` 会等待已接收任务结束（或超时）并回收进程。CLI 已在退出流程中关闭实例，`--session` 在 stdin EOF 后关闭。
+
 ```ts
 const facet = Facet.open({
   directory: './data',
   pool: { maxWorkers: 2, maxQueue: 64 },
 });
-await facet.sql('SELECT 1'); // 首次启动查询进程
-await facet.sql('SELECT 2'); // 复用进程和 SQLite 连接
-console.log(facet.stats()); // workers / workerPids / queued / spawned / peakWorkers
-await facet.close();       // 等待已接收任务，终止并回收所有查询进程
+try {
+  await facet.sql('SELECT 1'); // 首次启动查询进程
+  await facet.sql('SELECT 2'); // 复用进程和 SQLite 连接
+  console.log(facet.stats()); // workers / workerPids / queued / spawned / peakWorkers
+} finally {
+  await facet.close();        // 等待已接收任务，终止并回收所有查询进程
+}
 ```
 
 池默认最多 2 个进程、64 个等待任务，按需启动。超过等待容量立即返回 QUEUE_FULL，调用方可减小并发或稍后重试；maxQueue=0 表示不排队。timeoutMs 从提交时开始计算，包含排队和执行。崩溃任务返回 WORKER_ERROR，不重放 SQL；之后的任务自动使用替补进程。每条查询独立事务，重新读取 catalog 和版本，避免缓存旧 schema/旧数据。

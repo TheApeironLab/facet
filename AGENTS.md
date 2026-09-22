@@ -157,6 +157,15 @@ its replacement early. Crash/timeout settle exactly once, do not replay queries,
 and subsequent work must recover. Await close to drain and reap every child.
 Persistent connections must end each transaction and refresh catalog/version per query.
 
+After a query starts a worker, forgetting to await close prevents the Node.js
+process from naturally exiting, even after application logic finishes: persistent
+children and IPC channels remain referenced. This differs from 0.6's per-query
+process lifecycle. Workers have no idle eviction and retain memory until close.
+Use try/finally or await using for scripts, and reuse instances with an awaited
+shutdown hook in long-lived applications. Merely opening/writing without starting
+a query worker does not create this pool-specific exit blockage. Do not silently
+unref children/channels: accepted queries must not be abandoned on natural exit.
+
 Repeated standalone CLI launches still have cold-start cost. `facet sql --session`
 keeps one local process alive with JSONL stdin requests `{ id?, sql, params?, maxRows?,
 timeoutMs? }` and one result per line. It executes sequentially and honors stdout
