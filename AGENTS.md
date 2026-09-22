@@ -30,7 +30,7 @@ import { Facet } from '@local/facet';
 const facet = Facet.open({ directory: './data' });
 try {
   const response = { items: [{ id: 'o1', amount: 1200 }] };
-  facet.datasets.fromResponse(response, {
+  facet.writeResponse(response, {
     table: 'orders',
     select: result => result.items,
     primaryKey: ['id'],
@@ -45,7 +45,7 @@ try {
 }
 ```
 
-`datasets.write({ table, records, ... })` accepts arrays directly. The host owns
+`write({ table, records, ... })` accepts arrays directly. The host owns
 HTTP requests, credentials, pagination, retries, and tenant authorization.
 `directory` is a directory containing `data.sqlite` and optional WAL/SHM files.
 Rows and metadata persist together; reopen the same directory to reuse them.
@@ -84,7 +84,7 @@ Check grain, units, scope, and join multiplicity before aggregating. Do not infe
 population totals from partial or sampled data. Return SQL and data versions when
 explaining results.
 
-The CLI defaults to 20 result rows; SDK defaults to 1000. Inspect truncated, use
+CLI, SDK and tools default to 20 result rows. Inspect truncated, use
 COUNT for totals, and use --max-rows for a larger cap. --out writes JSONL to a new
 file and refuses overwrites. --sql-file reads SQL from a file. --timeout-ms sets
 query timeout. Hard ceilings are 10,000 rows, 10 MiB row JSON, and 30 seconds.
@@ -92,9 +92,13 @@ SDK queries return structured success/error objects; write operations can throw.
 CLI data goes to stdout and errors to stderr. Exit codes: 0 success, 2 argument or
 SQL error, 4 missing resource, 5 conflict, 9 timeout/storage failure.
 
-`facet --help` shows the primary commands. `facet describe` lists auxiliary and
-legacy commands, retained for compatibility. `workspace verify` checks catalog
-fields via read queries; it is not a full SQLite integrity check.
+`facet --help` shows all three CLI commands. There are no ingestion or maintenance
+CLI commands: application code writes through the SDK. SDK methods are write,
+writeResponse, tables, schema, sql, relate, instructions, tools, and close.
+`schema()` returns all tables; `schema(name)` returns one. Optional agent tools are
+also named tables/schema/sql; schema takes `{ table?: string }`.
+SQL defaults are configured with `Facet.open({ directory, sql: { ... } })`.
+CLI JSONL uses facet.cli.v2 and the table field for schema metadata.
 
 ## Code map
 
@@ -115,7 +119,7 @@ terminate the child process; worker-thread termination did not reliably interrup
 native SQLite execution. Do not claim the process is an OS resource sandbox.
 
 Keep the three primary CLI commands tables/schema/sql. SDK owns normal ingestion;
-legacy import/maintenance commands can remain compatible. Document intentional
+do not add legacy aliases or grouped command namespaces. Document intentional
 breaking changes, including defaults, output schema identifiers and public types.
 Keep CLI stdout parseable, errors actionable, and result truncation explicit.
 
@@ -133,3 +137,10 @@ Never commit node_modules, generated dist, tarballs, local databases/WAL/SHM,
 credentials, or environment files. Update README.md and this file when public
 commands or workflows change. Agent guidance belongs in AGENTS.md; do not add a
 SKILL.md. Keep package.json files aligned with the shipped documentation.
+
+## Version 0.6
+
+Public exports are Facet, FacetError and associated types; DataWorkspace is internal.
+Old datasets/query/agent namespaces and grouped CLI commands are removed.
+See README migration table for the full breaking API change. Local database format
+is unchanged. Keep terminology consistent across code, types, tools and docs.

@@ -34,6 +34,6 @@ try {
   process.send!({ ok: true, schemaVersion: 1, columns: stmt.columns().map(x => ({ name: x.name, type: x.type })), rows,
     returnedRows: rows.length, truncated, dataVersions: Object.fromEntries([...touched].map(t => [t, versions[t]])) });
 } catch (error) {
-  process.send!({ ok: false, error: { code: 'QUERY_ERROR', message: String((error as Error).message), hint: 'Inspect describe_dataset; use a single SELECT or WITH query without a trailing semicolon.' } });
+  process.send!({ ok: false, error: { code: 'QUERY_ERROR', message: String((error as Error).message), hint: 'Inspect schema; use a single SELECT or WITH query without a trailing semicolon.' } });
 } finally { db?.close(); process.disconnect?.(); }
 });
