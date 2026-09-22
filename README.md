@@ -172,7 +172,7 @@ facet sql 'SELECT * FROM orders'
 ## 从 GitHub 开发
 
 ```sh
-git clone https://github.com/apeironlab/facet.git
+git clone https://github.com/TheApeironLab/facet.git
 cd facet
 npm ci
 npm test
