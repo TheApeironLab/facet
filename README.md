@@ -184,4 +184,6 @@ Node 22 内置 SQLite 不提供本库依赖的 setAuthorizer，因此改用锁�
 
 内网 npm 镜像需要同步锁文件中的依赖，并保留驱动包的 prebuilds 原生文件。支持的平台从包内加载预编译文件；平台无匹配文件时需要 Python/C++/node-gyp 构建环境。部署请在目标平台执行 npm ci，不要直接拷贝其他 OS/架构的 node_modules。打包 tgz 不内嵌依赖，安装时仍需能访问内网 npm 镜像。
 
-本地在 Node 22.14.0（macOS arm64）验证全部回归测试；GitHub Actions 在 Linux 上验证最低 Node 22.0.0 和当前 Node 22。未在 apeiron/chentu 内网机器上实际执行。
+本地在 Node 22.21.1（macOS arm64）验证全部回归测试；GitHub Actions 在 Linux 上验证最低 Node 22.0.0 和当前 Node 22，并在 macOS 上验证当前 Node 22（驱动按平台分发预编译文件，需要多平台覆盖）。未在 apeiron/chentu 内网机器上实际执行。
+
+这个原生依赖是为 Node 22 基线引入的，不是长期设计：Node 从 24.10 起内置 `node:sqlite` 已提供 setAuthorizer。当部署基线升到 24.10+ 后，应把 `src/workspace.ts` 和 `src/query-worker.ts` 的导入换回 `node:sqlite`、删除该依赖并抬高 engines，以恢复零运行时依赖。切换前需在目标 Node 版本重跑全部回归测试，确认 setAuthorizer 拒绝内部表/PRAGMA/ATTACH/扩展加载的行为一致。

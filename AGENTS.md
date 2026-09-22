@@ -10,8 +10,8 @@ Do not introduce a query DSL, remote storage, or an HTTP server without a reques
 Requires Node.js >=22.0.0, npm, and ESM; Node 22 is the deployment baseline.
 Use @photostructure/sqlite 2.6.0 for DatabaseSync and authorizer support; do not
 import node:sqlite in runtime code or lower the authorization guarantees.
-This is a native runtime dependency, with platform-specific prebuilds. The package is currently private and has
-not been published to npm.
+This is a native runtime dependency, with platform-specific prebuilds. The package is
+MIT licensed and named @theapeironlab/facet; it is not published to npm yet.
 
 ```sh
 npm ci
@@ -197,3 +197,10 @@ Internal npm mirrors must include its transitive dependencies and prebuild files
 Run npm ci on the deployment platform; do not reuse another platform's node_modules.
 The .tgz does not bundle dependency binaries. Maintain existing SQLite file format
 compatibility and enforce setAuthorizer on the query connections.
+
+The native driver exists only to support the Node 22 baseline; node:sqlite gained
+setAuthorizer in Node 24.10. Once the deployment baseline reaches 24.10+, move the
+imports in workspace.ts and query-worker.ts back to node:sqlite, drop the dependency
+and raise engines, restoring zero runtime dependencies. Re-run the full regression
+suite on the target Node version first and confirm the authorizer still denies
+internal tables, PRAGMA, ATTACH and extension loading.
