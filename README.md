@@ -4,7 +4,7 @@
 
 ## 安装
 
-运行基线为 Node.js 22（>=22.0.0），ESM。包名 `@local/facet`，尚未发布 npm。
+运行基线为 Node.js 22（>=22.0.0），ESM。包名 `@theapeironlab/facet`，尚未发布 npm。
 
 ```sh
 git clone https://github.com/TheApeironLab/facet.git
@@ -13,7 +13,7 @@ npm ci
 npm test
 npm pack
 # 在业务项目中安装生成的包
-npm install /path/to/local-facet-0.8.0.tgz
+npm install /path/to/theapeironlab-facet-0.8.0.tgz
 ```
 
 项目内使用 `npx --no-install facet`，全局安装后可直接运行 `facet`；源码目录先 build，再运行 `node dist/cli.js`。
@@ -21,7 +21,7 @@ npm install /path/to/local-facet-0.8.0.tgz
 ## SDK 写入
 
 ```ts
-import { Facet } from '@local/facet';
+import { Facet } from '@theapeironlab/facet';
 
 const facet = Facet.open({ directory: './data' });
 try {

@@ -1,0 +1,65 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    name: test · node ${{ matrix.node }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22.0.0 is the declared engines floor; 22 tracks the deployment baseline.
+        node: ['22.0.0', '22']
+        os: [ubuntu-latest]
+        include:
+          # The SQLite driver ships per-platform prebuilds; check a second platform.
+          - node: '22'
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run example
+      - run: npm pack
+
+  package:
+    name: package contents
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # The query process and CLI are loaded from dist at runtime; LICENSE must ship.
+      - name: verify tarball contents
+        run: |
+          npm pack --silent
+          tar tzf *.tgz | sed 's|^package/||' | sort > files.txt
+          cat files.txt
+          for required in LICENSE README.md AGENTS.md \
+            dist/index.js dist/cli.js dist/query-worker.js dist/query-pool.js \
+            dist/errors.js dist/sql-validation.js dist/workspace.js dist/sdk.js \
+            dist/index.d.ts; do
+            grep -qx "$required" files.txt || { echo "missing from tarball: $required"; exit 1; }
+          done
+      - name: verify license metadata
+        run: |
+          test -f LICENSE || { echo "LICENSE file missing"; exit 1; }
+          node -e "
+            const { license, name, private: p } = require('./package.json');
+            if (license !== 'MIT') throw new Error('package.json license must be MIT, got ' + license);
+            if (p) throw new Error('package.json must not be private');
+            if (name.startsWith('@local/')) throw new Error('unpublishable package name: ' + name);
+          "

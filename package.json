@@ -1,7 +1,17 @@
 {
-  "name": "@local/facet",
+  "name": "@theapeironlab/facet",
   "version": "0.8.0",
-  "private": true,
+  "description": "Local SQLite SDK and CLI for agent analytics",
+  "keywords": [
+    "sqlite",
+    "agent",
+    "llm",
+    "analytics",
+    "sql",
+    "local-first",
+    "tools"
+  ],
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
@@ -12,12 +22,19 @@
       "import": "./dist/index.js"
     }
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "facet": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "README.md",
+    "LICENSE",
     "examples",
     "AGENTS.md"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.mjs",
@@ -25,22 +42,22 @@
     "prepack": "npm run build",
     "benchmark": "npm run build && node bench/query.mjs"
   },
+  "dependencies": {
+    "@photostructure/sqlite": "2.6.0"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
-  },
-  "description": "Local SQLite SDK and CLI for agent analytics",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "sideEffects": false,
-  "bin": {
-    "facet": "./dist/cli.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/TheApeironLab/facet.git"
   },
-  "dependencies": {
-    "@photostructure/sqlite": "2.6.0"
+  "homepage": "https://github.com/TheApeironLab/facet#readme",
+  "bugs": {
+    "url": "https://github.com/TheApeironLab/facet/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
